@@ -28,6 +28,7 @@ export default function Home() {
   const [dueDate, setDueDate] = useState('');
   const [duration, setDuration] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [decomposingId, setDecomposingId] = useState<number | null>(null);
   const [data, setData] = useState<ScheduleResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,6 +122,28 @@ export default function Home() {
       await refresh();
     } catch {
       setError('Failed to update duration');
+    }
+  };
+
+  const handleDecompose = async (todoId: number) => {
+    if (decomposingId !== null) return;
+    setDecomposingId(todoId);
+    setError(null);
+    try {
+      const res = await fetch('/api/todos/decompose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ todoId }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error ?? 'Decomposition failed');
+      }
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Decomposition failed');
+    } finally {
+      setDecomposingId(null);
     }
   };
 
@@ -267,6 +290,18 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+                <button
+                  onClick={() => handleDecompose(todo.id)}
+                  disabled={decomposingId !== null}
+                  className="text-indigo-500 hover:text-indigo-700 transition duration-300 ml-2 flex-shrink-0 disabled:opacity-40"
+                  title="AI: split into scheduled subtasks"
+                >
+                  {decomposingId === todo.id ? (
+                    <span className="inline-block w-5 animate-pulse">…</span>
+                  ) : (
+                    '✨'
+                  )}
+                </button>
                 <button
                   onClick={() => handleDeleteTodo(todo.id)}
                   className="text-red-500 hover:text-red-700 transition duration-300 ml-2 flex-shrink-0"
