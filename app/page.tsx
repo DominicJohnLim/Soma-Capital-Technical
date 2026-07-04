@@ -3,25 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { isOverdue, formatDate } from '@/lib/dates';
 import { ScheduleTask, ScheduleResponse } from '@/lib/types';
+import TodoImage from '@/components/TodoImage';
 
 // reactflow needs the DOM — render client-side only.
 const DependencyGraph = dynamic(() => import('@/components/DependencyGraph'), { ssr: false });
-
-function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
-  const [loaded, setLoaded] = useState(false);
-  if (!url) return null;
-  return (
-    <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200 mr-3">
-      {!loaded && <div className="absolute inset-0 animate-pulse bg-gray-300" />}
-      <img
-        src={url}
-        alt={alt ?? ''}
-        className="w-16 h-16 object-cover"
-        onLoad={() => setLoaded(true)}
-      />
-    </div>
-  );
-}
 
 export default function Home() {
   const [newTodo, setNewTodo] = useState('');
