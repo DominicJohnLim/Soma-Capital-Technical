@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 /** Pexels thumbnail for a todo, with a pulsing skeleton until the image loads.
  *  Renders nothing when the todo has no image. */
-export default function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
+export function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
   const [loaded, setLoaded] = useState(false);
   if (!url) return null;
   return (
@@ -18,3 +18,5 @@ export default function TodoImage({ url, alt }: { url: string | null; alt: strin
     </div>
   );
 }
+
+export default TodoImage;

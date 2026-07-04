@@ -1,0 +1,18 @@
+{
+  "pkg": "soma-todo-app",
+  "globalName": "SomaTodo",
+  "shape": "package",
+  "buildCmd": "npx tailwindcss -c tailwind.config.ts -i app/globals.css -o .design-sync/.cache/tailwind.css",
+  "srcDir": "components",
+  "tsconfig": "tsconfig.json",
+  "componentSrcMap": {
+    "DependencyGraph": "components/DependencyGraph.tsx",
+    "TodoImage": "components/TodoImage.tsx"
+  },
+  "cssEntry": ".design-sync/.cache/tailwind.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "DependencyGraph": { "cardMode": "column" },
+    "TodoImage": { "cardMode": "column" }
+  }
+}

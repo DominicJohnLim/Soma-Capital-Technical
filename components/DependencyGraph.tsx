@@ -79,7 +79,7 @@ function layout(
   return { nodes, edges };
 }
 
-export default function DependencyGraph({
+export function DependencyGraph({
   tasks,
   criticalPath,
 }: {
@@ -106,3 +106,5 @@ export default function DependencyGraph({
     </div>
   );
 }
+
+export default DependencyGraph;
