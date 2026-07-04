@@ -1,7 +1,7 @@
 "use client"
-import { Todo } from '@prisma/client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { isOverdue, formatDate } from '@/lib/dates';
+import { ScheduleTask, ScheduleResponse } from '@/lib/types';
 
 function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
   const [loaded, setLoaded] = useState(false);
@@ -22,79 +22,163 @@ function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
 export default function Home() {
   const [newTodo, setNewTodo] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [duration, setDuration] = useState(1);
   const [creating, setCreating] = useState(false);
-  const [todos, setTodos] = useState([]);
+  const [data, setData] = useState<ScheduleResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchTodos();
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch('/api/schedule');
+      if (!res.ok) throw new Error('Failed to load schedule');
+      setData(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load todos');
+    }
   }, []);
 
-  const fetchTodos = async () => {
-    try {
-      const res = await fetch('/api/todos');
-      const data = await res.json();
-      setTodos(data);
-    } catch (error) {
-      console.error('Failed to fetch todos:', error);
-    }
-  };
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const handleAddTodo = async () => {
     if (!newTodo.trim() || creating) return;
     setCreating(true);
+    setError(null);
     try {
-      await fetch('/api/todos', {
+      const res = await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTodo, dueDate: dueDate || undefined }),
+        body: JSON.stringify({
+          title: newTodo,
+          dueDate: dueDate || undefined,
+          durationDays: duration,
+        }),
       });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error ?? 'Failed to add todo');
+      }
       setNewTodo('');
       setDueDate('');
-      await fetchTodos();
-    } catch (error) {
-      console.error('Failed to add todo:', error);
+      setDuration(1);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add todo');
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeleteTodo = async (id:any) => {
+  const handleDeleteTodo = async (id: number) => {
     try {
-      await fetch(`/api/todos/${id}`, {
-        method: 'DELETE',
-      });
-      fetchTodos();
-    } catch (error) {
-      console.error('Failed to delete todo:', error);
+      await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+      await refresh();
+    } catch {
+      setError('Failed to delete todo');
     }
   };
 
+  const handleAddDependency = async (todoId: number, dependsOnId: number) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/todos/${todoId}/dependencies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dependsOnId }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error ?? 'Failed to add dependency');
+      }
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add dependency');
+    }
+  };
+
+  const handleRemoveDependency = async (todoId: number, dependsOnId: number) => {
+    try {
+      await fetch(`/api/todos/${todoId}/dependencies/${dependsOnId}`, { method: 'DELETE' });
+      await refresh();
+    } catch {
+      setError('Failed to remove dependency');
+    }
+  };
+
+  const handleDurationChange = async (todoId: number, durationDays: number) => {
+    if (!Number.isInteger(durationDays) || durationDays < 1) return;
+    try {
+      await fetch(`/api/todos/${todoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ durationDays }),
+      });
+      await refresh();
+    } catch {
+      setError('Failed to update duration');
+    }
+  };
+
+  const tasks = data?.tasks ?? [];
+  const titleById = new Map(tasks.map((t) => [t.id, t.title]));
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-500 to-red-500 flex flex-col items-center p-4">
-      <div className="w-full max-w-md">
-        <h1 className="text-4xl font-bold text-center text-white mb-8">Things To Do App</h1>
-        <div className="flex mb-6">
+      <div className="w-full max-w-3xl">
+        <h1 className="text-4xl font-bold text-center text-white mb-2">Things To Do App</h1>
+        {tasks.length > 0 && (
+          <p className="text-center text-orange-100 mb-6">
+            Project duration: {data!.totalDurationDays} day
+            {data!.totalDurationDays === 1 ? '' : 's'} along the critical path
+          </p>
+        )}
+
+        <div className="flex mb-4 bg-white rounded-full overflow-hidden shadow-lg">
           <input
             type="text"
-            className="flex-grow p-3 rounded-l-full focus:outline-none text-gray-700"
+            className="flex-grow p-3 focus:outline-none text-gray-700"
             placeholder="Add a new todo"
             value={newTodo}
             onChange={(e) => setNewTodo(e.target.value)}
-          
+            onKeyDown={(e) => e.key === 'Enter' && handleAddTodo()}
           />
           <input
             type="date"
-            className="p-3 text-gray-700 focus:outline-none"
+            title="Due date"
+            className="p-3 text-gray-700 focus:outline-none border-l"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />
+          <label className="flex items-center gap-1 p-3 border-l text-gray-500 text-sm">
+            <input
+              type="number"
+              min={1}
+              title="Estimated duration in days"
+              className="w-14 text-gray-700 focus:outline-none"
+              value={duration}
+              onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
+            />
+            d
+          </label>
           <button
             onClick={handleAddTodo}
-            className="bg-white text-indigo-600 p-3 rounded-r-full hover:bg-gray-100 transition duration-300"
+            disabled={creating}
+            className="bg-indigo-600 text-white px-6 hover:bg-indigo-700 transition duration-300 disabled:opacity-50"
           >
             Add
           </button>
         </div>
+
+        {error && (
+          <div className="flex justify-between items-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="font-bold ml-4">
+              ✕
+            </button>
+          </div>
+        )}
+
         <ul>
           {creating && (
             <li className="flex items-center bg-white bg-opacity-60 p-4 mb-4 rounded-lg shadow-lg animate-pulse">
@@ -105,45 +189,95 @@ export default function Home() {
               </div>
             </li>
           )}
-          {todos.map((todo:Todo) => (
-            <li
-              key={todo.id}
-              className="flex justify-between items-center bg-white bg-opacity-90 p-4 mb-4 rounded-lg shadow-lg"
-            >
-              <TodoImage url={todo.imageUrl} alt={todo.imageAlt} />
-              <div className="flex-grow">
-                <span className="text-gray-800">{todo.title}</span>
-                {todo.dueDate && (
-                  <div
-                    className={
-                      isOverdue(todo.dueDate)
-                        ? 'text-sm text-red-600 font-semibold'
-                        : 'text-sm text-gray-500'
-                    }
-                  >
-                    Due {formatDate(todo.dueDate)}
+          {tasks.map((todo: ScheduleTask) => (
+            <li key={todo.id} className="bg-white bg-opacity-90 p-4 mb-4 rounded-lg shadow-lg">
+              <div className="flex items-start">
+                <TodoImage url={todo.imageUrl} alt={todo.imageAlt} />
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-gray-800 font-medium">{todo.title}</span>
+                    {todo.isCritical && (
+                      <span className="text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded-full px-2 py-0.5">
+                        Critical path
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-              <button
-                onClick={() => handleDeleteTodo(todo.id)}
-                className="text-red-500 hover:text-red-700 transition duration-300"
-              >
-                {/* Delete Icon */}
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                  <div className="text-sm text-gray-500 flex items-center gap-3 flex-wrap mt-1">
+                    {todo.dueDate && (
+                      <span
+                        className={
+                          isOverdue(todo.dueDate) ? 'text-red-600 font-semibold' : undefined
+                        }
+                      >
+                        Due {formatDate(todo.dueDate)}
+                      </span>
+                    )}
+                    <span>Earliest start {formatDate(todo.earliestStartDate)}</span>
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        value={todo.durationDays}
+                        onChange={(e) =>
+                          handleDurationChange(todo.id, parseInt(e.target.value))
+                        }
+                        className="w-12 border rounded px-1 text-gray-700"
+                      />
+                      d
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap mt-2">
+                    {todo.dependsOn.map((depId) => (
+                      <span
+                        key={depId}
+                        className="text-xs bg-gray-100 text-gray-700 border border-gray-300 rounded-full px-2 py-0.5 flex items-center gap-1"
+                      >
+                        after {titleById.get(depId) ?? `#${depId}`}
+                        <button
+                          onClick={() => handleRemoveDependency(todo.id, depId)}
+                          className="text-gray-400 hover:text-red-600"
+                          title="Remove dependency"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    {tasks.length > 1 && (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const depId = parseInt(e.target.value);
+                          if (!isNaN(depId)) handleAddDependency(todo.id, depId);
+                        }}
+                        className="text-xs text-gray-500 border border-dashed border-gray-300 rounded-full px-2 py-0.5 bg-transparent"
+                      >
+                        <option value="">+ depends on…</option>
+                        {tasks
+                          .filter((t) => t.id !== todo.id && !todo.dependsOn.includes(t.id))
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.title}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteTodo(todo.id)}
+                  className="text-red-500 hover:text-red-700 transition duration-300 ml-2 flex-shrink-0"
+                  title="Delete todo"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
             </li>
           ))}
         </ul>
