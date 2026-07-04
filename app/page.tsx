@@ -1,7 +1,11 @@
 "use client"
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { isOverdue, formatDate } from '@/lib/dates';
 import { ScheduleTask, ScheduleResponse } from '@/lib/types';
+
+// reactflow needs the DOM — render client-side only.
+const DependencyGraph = dynamic(() => import('@/components/DependencyGraph'), { ssr: false });
 
 function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
   const [loaded, setLoaded] = useState(false);
@@ -281,6 +285,13 @@ export default function Home() {
             </li>
           ))}
         </ul>
+
+        {tasks.length > 0 && (
+          <>
+            <h2 className="text-2xl font-bold text-white mt-8 mb-4">Dependency Graph</h2>
+            <DependencyGraph tasks={tasks} criticalPath={data?.criticalPath ?? []} />
+          </>
+        )}
       </div>
     </div>
   );
