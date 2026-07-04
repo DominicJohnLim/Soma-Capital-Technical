@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { searchImage } from '@/lib/pexels';
 
 export async function GET() {
   try {
@@ -32,8 +33,15 @@ export async function POST(request: Request) {
     const durationDays =
       Number.isInteger(body.durationDays) && body.durationDays >= 1 ? body.durationDays : 1;
 
+    const image = await searchImage(title);
     const todo = await prisma.todo.create({
-      data: { title, dueDate, durationDays },
+      data: {
+        title,
+        dueDate,
+        durationDays,
+        imageUrl: image?.url ?? null,
+        imageAlt: image?.alt ?? null,
+      },
     });
     return NextResponse.json(todo, { status: 201 });
   } catch (error) {

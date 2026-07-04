@@ -3,9 +3,26 @@ import { Todo } from '@prisma/client';
 import { useState, useEffect } from 'react';
 import { isOverdue, formatDate } from '@/lib/dates';
 
+function TodoImage({ url, alt }: { url: string | null; alt: string | null }) {
+  const [loaded, setLoaded] = useState(false);
+  if (!url) return null;
+  return (
+    <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200 mr-3">
+      {!loaded && <div className="absolute inset-0 animate-pulse bg-gray-300" />}
+      <img
+        src={url}
+        alt={alt ?? ''}
+        className="w-16 h-16 object-cover"
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  );
+}
+
 export default function Home() {
   const [newTodo, setNewTodo] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [creating, setCreating] = useState(false);
   const [todos, setTodos] = useState([]);
 
   useEffect(() => {
@@ -23,7 +40,8 @@ export default function Home() {
   };
 
   const handleAddTodo = async () => {
-    if (!newTodo.trim()) return;
+    if (!newTodo.trim() || creating) return;
+    setCreating(true);
     try {
       await fetch('/api/todos', {
         method: 'POST',
@@ -32,9 +50,11 @@ export default function Home() {
       });
       setNewTodo('');
       setDueDate('');
-      fetchTodos();
+      await fetchTodos();
     } catch (error) {
       console.error('Failed to add todo:', error);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -76,12 +96,22 @@ export default function Home() {
           </button>
         </div>
         <ul>
+          {creating && (
+            <li className="flex items-center bg-white bg-opacity-60 p-4 mb-4 rounded-lg shadow-lg animate-pulse">
+              <div className="w-16 h-16 rounded-lg bg-gray-300 mr-3" />
+              <div className="flex-grow">
+                <div className="h-4 bg-gray-300 rounded w-2/3 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-1/3" />
+              </div>
+            </li>
+          )}
           {todos.map((todo:Todo) => (
             <li
               key={todo.id}
               className="flex justify-between items-center bg-white bg-opacity-90 p-4 mb-4 rounded-lg shadow-lg"
             >
-              <div>
+              <TodoImage url={todo.imageUrl} alt={todo.imageAlt} />
+              <div className="flex-grow">
                 <span className="text-gray-800">{todo.title}</span>
                 {todo.dueDate && (
                   <div
