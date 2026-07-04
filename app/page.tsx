@@ -1,9 +1,11 @@
 "use client"
 import { Todo } from '@prisma/client';
 import { useState, useEffect } from 'react';
+import { isOverdue, formatDate } from '@/lib/dates';
 
 export default function Home() {
   const [newTodo, setNewTodo] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [todos, setTodos] = useState([]);
 
   useEffect(() => {
@@ -26,9 +28,10 @@ export default function Home() {
       await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTodo }),
+        body: JSON.stringify({ title: newTodo, dueDate: dueDate || undefined }),
       });
       setNewTodo('');
+      setDueDate('');
       fetchTodos();
     } catch (error) {
       console.error('Failed to add todo:', error);
@@ -59,7 +62,12 @@ export default function Home() {
             onChange={(e) => setNewTodo(e.target.value)}
           
           />
-          <input type="date" />
+          <input
+            type="date"
+            className="p-3 text-gray-700 focus:outline-none"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
           <button
             onClick={handleAddTodo}
             className="bg-white text-indigo-600 p-3 rounded-r-full hover:bg-gray-100 transition duration-300"
@@ -73,7 +81,20 @@ export default function Home() {
               key={todo.id}
               className="flex justify-between items-center bg-white bg-opacity-90 p-4 mb-4 rounded-lg shadow-lg"
             >
-              <span className="text-gray-800">{todo.title}</span>
+              <div>
+                <span className="text-gray-800">{todo.title}</span>
+                {todo.dueDate && (
+                  <div
+                    className={
+                      isOverdue(todo.dueDate)
+                        ? 'text-sm text-red-600 font-semibold'
+                        : 'text-sm text-gray-500'
+                    }
+                  >
+                    Due {formatDate(todo.dueDate)}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => handleDeleteTodo(todo.id)}
                 className="text-red-500 hover:text-red-700 transition duration-300"

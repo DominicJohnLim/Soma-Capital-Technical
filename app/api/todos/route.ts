@@ -7,6 +7,7 @@ export async function GET() {
       orderBy: {
         createdAt: 'desc',
       },
+      include: { dependencies: { select: { dependsOnId: true } } },
     });
     return NextResponse.json(todos);
   } catch (error) {
@@ -16,14 +17,23 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { title } = await request.json();
-    if (!title || title.trim() === '') {
+    const body = await request.json();
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
+    const dueDate =
+      typeof body.dueDate === 'string' && body.dueDate
+        ? new Date(`${body.dueDate}T00:00:00Z`)
+        : null;
+    if (dueDate && isNaN(dueDate.getTime())) {
+      return NextResponse.json({ error: 'Invalid due date' }, { status: 400 });
+    }
+    const durationDays =
+      Number.isInteger(body.durationDays) && body.durationDays >= 1 ? body.durationDays : 1;
+
     const todo = await prisma.todo.create({
-      data: {
-        title,
-      },
+      data: { title, dueDate, durationDays },
     });
     return NextResponse.json(todo, { status: 201 });
   } catch (error) {
