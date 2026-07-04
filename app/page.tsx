@@ -77,7 +77,8 @@ export default function Home() {
 
   const handleDeleteTodo = async (id: number) => {
     try {
-      await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
       await refresh();
     } catch {
       setError('Failed to delete todo');
@@ -104,21 +105,25 @@ export default function Home() {
 
   const handleRemoveDependency = async (todoId: number, dependsOnId: number) => {
     try {
-      await fetch(`/api/todos/${todoId}/dependencies/${dependsOnId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/todos/${todoId}/dependencies/${dependsOnId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error();
       await refresh();
     } catch {
       setError('Failed to remove dependency');
     }
   };
 
-  const handleDurationChange = async (todoId: number, durationDays: number) => {
-    if (!Number.isInteger(durationDays) || durationDays < 1) return;
+  const handleDurationChange = async (todoId: number, durationDays: number, previous: number) => {
+    if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays === previous) return;
     try {
-      await fetch(`/api/todos/${todoId}`, {
+      const res = await fetch(`/api/todos/${todoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ durationDays }),
       });
+      if (!res.ok) throw new Error();
       await refresh();
     } catch {
       setError('Failed to update duration');
@@ -240,14 +245,18 @@ export default function Home() {
                       </span>
                     )}
                     <span>Earliest start {formatDate(todo.earliestStartDate)}</span>
-                    <label className="flex items-center gap-1">
+                    <label className="flex items-center gap-1" title="Duration (days)">
                       <input
                         type="number"
                         min={1}
-                        value={todo.durationDays}
-                        onChange={(e) =>
-                          handleDurationChange(todo.id, parseInt(e.target.value))
+                        key={`${todo.id}-${todo.durationDays}`}
+                        defaultValue={todo.durationDays}
+                        onBlur={(e) =>
+                          handleDurationChange(todo.id, parseInt(e.target.value), todo.durationDays)
                         }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
                         className="w-12 border rounded px-1 text-gray-700"
                       />
                       d

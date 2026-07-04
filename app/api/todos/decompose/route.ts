@@ -11,7 +11,12 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
   const todoId = Number.isInteger(body.todoId) ? (body.todoId as number) : NaN;
   if (isNaN(todoId)) {
     return NextResponse.json({ error: 'Invalid todoId' }, { status: 400 });
@@ -78,9 +83,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ created: createdIds.length }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Decomposition failed' },
-      { status: 502 },
-    );
+    // Only surface messages we authored — SDK/network errors get a generic one.
+    const known = new Set(['No response from model', 'Model returned an invalid decomposition']);
+    const message =
+      error instanceof Error && known.has(error.message)
+        ? error.message
+        : 'Decomposition failed — please try again';
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

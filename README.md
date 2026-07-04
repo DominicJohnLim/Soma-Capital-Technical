@@ -92,7 +92,7 @@ Each todo also carries a `durationDays` (editable inline) that feeds the schedul
 
 **2. Circular dependency prevention** — adding "A depends on B" is rejected iff A is already reachable from B by walking prerequisite links (DFS over the full graph), which catches direct (A→B→A), transitive (A→B→C→A), and self cycles. Rejections return a 400 with both task titles, surfaced as a dismissible banner in the UI. As defense in depth, the topological sort also throws if a cycle somehow reaches it.
 
-**3. Critical path** — computed with the Critical Path Method: a forward pass in topological order (Kahn's algorithm) computes each task's earliest start/finish, then the longest path is backtracked from the task that finishes last. Critical tasks get an amber badge in the list and amber animated edges in the graph.
+**3. Critical path** — computed with the Critical Path Method: a forward pass in topological order (Kahn's algorithm) computes each task's earliest start/finish, then the longest path is backtracked from the task that finishes last. Critical tasks get an amber badge in the list and amber animated edges in the graph. When two parallel branches tie for longest, one deterministic path is highlighted (classic CPM would call every zero-slack task critical — a deliberate simplification for readability).
 
 **4. Earliest start dates** — `earliestStart(task) = max(earliestFinish(prerequisites))`, anchored at today. Shown on every card. This is **computed on read** (`GET /api/schedule`), not persisted: derived state goes stale on every dependency/duration edit, while recomputing is O(V+E) and always correct at this scale.
 
@@ -104,6 +104,10 @@ Each todo also carries a `durationDays` (editable inline) that feeds the schedul
 
 - **✨ AI task decomposition** — the sparkle button on any todo calls `POST /api/todos/decompose`, which asks Claude (structured JSON output) for 2–8 subtasks with estimated durations and inter-subtask dependencies. The response is strictly validated (`parseDecomposition` — index bounds, self-edges, size limits) and cycle-checked with the same engine before anything is written; subtasks + edges are created in one transaction and the original todo becomes dependent on all of them. Without `ANTHROPIC_API_KEY` the endpoint degrades to a friendly 503.
 - **Unit tests** — `npm test` (Vitest, 29 tests) covers cycle detection (self/direct/transitive/redundant-edge), topological sort, critical path on diamond graphs with unequal branch weights, disconnected components, overdue date logic, the Pexels client (mocked fetch, error paths), and the LLM response validator.
+
+### Known limitations
+
+- **Concurrent-edit race:** the cycle check runs against a snapshot, so two simultaneous dependency additions that are each individually acyclic could together form a cycle. The window is tiny (SQLite serializes writes) and the app degrades gracefully if it ever happens — `GET /api/schedule` detects the cycle, returns the list with zeroed schedule fields and a `cyclic` flag, so the offending edge can still be removed. A serializable check-and-insert transaction would close it fully.
 
 ### Setup
 

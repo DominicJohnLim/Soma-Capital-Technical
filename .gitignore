@@ -7,3 +7,5 @@ node_modules
 .env
 prisma/dev.db
 .gstack/
+tsconfig.tsbuildinfo
+prisma/dev.db*

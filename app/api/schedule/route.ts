@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { computeSchedule, addDays, CycleError } from '@/lib/scheduling';
+import { computeSchedule, addDays, CycleError, Schedule } from '@/lib/scheduling';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,26 @@ export async function GET() {
       durationDays: t.durationDays,
       dependsOn: t.dependencies.map((d) => d.dependsOnId),
     }));
-    const schedule = computeSchedule(nodes);
+    // If concurrent edits ever sneak a cycle past the add-time check, keep the
+    // app usable (schedule fields zeroed) so the offending edge can be removed.
+    let schedule: Schedule;
+    let cyclic = false;
+    try {
+      schedule = computeSchedule(nodes);
+    } catch (e) {
+      if (!(e instanceof CycleError)) throw e;
+      cyclic = true;
+      schedule = {
+        tasks: Object.fromEntries(
+          nodes.map((n) => [
+            n.id,
+            { id: n.id, earliestStartDay: 0, earliestFinishDay: n.durationDays, isCritical: false },
+          ]),
+        ),
+        criticalPath: [],
+        totalDurationDays: 0,
+      };
+    }
     const now = new Date();
     const projectStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
@@ -42,11 +61,9 @@ export async function GET() {
       criticalPath: schedule.criticalPath,
       totalDurationDays: schedule.totalDurationDays,
       projectStartDate: projectStart.toISOString(),
+      cyclic,
     });
   } catch (error) {
-    if (error instanceof CycleError) {
-      return NextResponse.json({ error: 'Dependency graph contains a cycle' }, { status: 500 });
-    }
     return NextResponse.json({ error: 'Error computing schedule' }, { status: 500 });
   }
 }

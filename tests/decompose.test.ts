@@ -64,6 +64,17 @@ describe('parseDecomposition', () => {
     ).toBeNull();
   });
 
+  it('dedupes repeated dependency pairs', () => {
+    const d = parseDecomposition({
+      subtasks: [
+        { title: 'A', durationDays: 1 },
+        { title: 'B', durationDays: 1 },
+      ],
+      dependencies: [[1, 0], [1, 0]],
+    });
+    expect(d!.dependencies).toEqual([[1, 0]]);
+  });
+
   it('rejects subtasks without a usable title', () => {
     expect(
       parseDecomposition({

@@ -12,17 +12,23 @@ export async function PATCH(request: Request, { params }: Params) {
   if (isNaN(id)) {
     return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
   }
-  const body = await request.json();
-  if (!Number.isInteger(body.durationDays) || body.durationDays < 1) {
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+  if (!Number.isInteger(body.durationDays) || (body.durationDays as number) < 1) {
     return NextResponse.json(
       { error: 'durationDays must be a positive integer' },
       { status: 400 },
     );
   }
+  const durationDays = body.durationDays as number;
   try {
     const todo = await prisma.todo.update({
       where: { id },
-      data: { durationDays: body.durationDays },
+      data: { durationDays },
     });
     return NextResponse.json(todo);
   } catch {

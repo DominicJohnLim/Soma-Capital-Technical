@@ -29,12 +29,16 @@ export function parseDecomposition(raw: unknown): Decomposition | null {
   }
 
   const dependencies: [number, number][] = [];
+  const seen = new Set<string>();
   for (const pair of obj.dependencies) {
     if (!Array.isArray(pair) || pair.length !== 2) return null;
     const [dep, pre] = pair;
     if (!Number.isInteger(dep) || !Number.isInteger(pre)) return null;
     if (dep === pre) return null;
     if (dep < 0 || dep >= subtasks.length || pre < 0 || pre >= subtasks.length) return null;
+    const key = `${dep}->${pre}`;
+    if (seen.has(key)) continue; // models occasionally repeat pairs
+    seen.add(key);
     dependencies.push([dep, pre]);
   }
   return { subtasks, dependencies };
