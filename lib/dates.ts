@@ -21,3 +21,12 @@ export function formatDate(d: string | Date): string {
     timeZone: 'UTC',
   });
 }
+
+// Year-less variant used for tight mobile labels (e.g. "Jul 1").
+export function formatDateShort(d: string | Date): string {
+  return new Date(d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}

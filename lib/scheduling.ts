@@ -8,6 +8,9 @@ export interface ScheduledTask {
   id: number;
   earliestStartDay: number;
   earliestFinishDay: number;
+  latestStartDay: number;
+  latestFinishDay: number;
+  slackDays: number;
   isCritical: boolean;
 }
 
@@ -92,6 +95,10 @@ export function computeSchedule(tasks: TaskNode[]): Schedule {
       id,
       earliestStartDay,
       earliestFinishDay: earliestStartDay + Math.max(task.durationDays, 0),
+      // Filled by the backward pass below.
+      latestStartDay: 0,
+      latestFinishDay: 0,
+      slackDays: 0,
       isCritical: false,
     };
   }
@@ -107,6 +114,33 @@ export function computeSchedule(tasks: TaskNode[]): Schedule {
     }
     totalDurationDays = scheduled[endId].earliestFinishDay;
 
+    // Backward pass (CPM): walk reverse topological order. A task's latest
+    // finish is the earliest latest-start among the tasks that depend on it
+    // (or the project end if nothing depends on it). Slack = how far it can
+    // slip without pushing the project end; zero slack means it's on a
+    // critical path.
+    const dependents = new Map<number, number[]>();
+    for (const t of Array.from(byId.values())) {
+      for (const d of t.dependsOn) {
+        if (scheduled[d] !== undefined) {
+          dependents.set(d, [...(dependents.get(d) ?? []), t.id]);
+        }
+      }
+    }
+    for (let i = order.length - 1; i >= 0; i--) {
+      const id = order[i];
+      const succs = dependents.get(id) ?? [];
+      const latestFinishDay =
+        succs.length > 0
+          ? Math.min(...succs.map((s) => scheduled[s].latestStartDay))
+          : totalDurationDays;
+      const s = scheduled[id];
+      s.latestFinishDay = latestFinishDay;
+      s.latestStartDay = latestFinishDay - (s.earliestFinishDay - s.earliestStartDay);
+      s.slackDays = s.latestStartDay - s.earliestStartDay;
+    }
+
+    // Highlight one deterministic longest path from the last-finishing task.
     let current: number | undefined = endId;
     while (current !== undefined) {
       criticalPath.unshift(current);

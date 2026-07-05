@@ -28,7 +28,15 @@ export async function GET() {
         tasks: Object.fromEntries(
           nodes.map((n) => [
             n.id,
-            { id: n.id, earliestStartDay: 0, earliestFinishDay: n.durationDays, isCritical: false },
+            {
+              id: n.id,
+              earliestStartDay: 0,
+              earliestFinishDay: n.durationDays,
+              latestStartDay: 0,
+              latestFinishDay: n.durationDays,
+              slackDays: 0,
+              isCritical: false,
+            },
           ]),
         ),
         criticalPath: [],
@@ -52,6 +60,7 @@ export async function GET() {
         earliestStartDay: s.earliestStartDay,
         earliestStartDate: addDays(projectStart, s.earliestStartDay).toISOString(),
         earliestFinishDate: addDays(projectStart, s.earliestFinishDay).toISOString(),
+        slackDays: s.slackDays,
         isCritical: s.isCritical,
       };
     });

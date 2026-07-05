@@ -5,12 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "prisma generate --schema=prisma/schema.production.prisma && prisma db push --schema=prisma/schema.production.prisma --skip-generate && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
     "@next/font": "^14.2.15",
     "@prisma/client": "^5.20.0",
     "dagre": "^0.8.5",

@@ -81,6 +81,25 @@ describe('computeSchedule', () => {
     expect(s.criticalPath).toEqual([2]);
   });
 
+  it('computes slack: critical tasks have zero, others have positive', () => {
+    // diamond: 1(1); 2(5)<-1; 3(2)<-1; 4(1)<-2,3. Project = 7 days.
+    const s = computeSchedule([t(1, 1), t(2, 5, [1]), t(3, 2, [1]), t(4, 1, [2, 3])]);
+    expect(s.tasks[1].slackDays).toBe(0); // critical
+    expect(s.tasks[2].slackDays).toBe(0); // critical (5-day branch)
+    expect(s.tasks[4].slackDays).toBe(0); // critical
+    // Write copy branch: 2 days on a 5-day-long parallel path → 3 days of slack
+    expect(s.tasks[3].slackDays).toBe(3);
+    expect(s.tasks[3].isCritical).toBe(false);
+    // slack == latestStart - earliestStart, and latestFinish is consistent
+    expect(s.tasks[3].latestStartDay - s.tasks[3].earliestStartDay).toBe(3);
+  });
+
+  it('gives a disconnected shorter task slack against the longer one', () => {
+    const s = computeSchedule([t(1, 2), t(2, 4)]);
+    expect(s.tasks[2].slackDays).toBe(0);
+    expect(s.tasks[1].slackDays).toBe(2);
+  });
+
   it('handles an empty graph', () => {
     const s = computeSchedule([]);
     expect(s.totalDurationDays).toBe(0);

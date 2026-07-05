@@ -4,10 +4,10 @@ import ReactFlow, { Background, Controls, Edge, Node, MarkerType } from 'reactfl
 import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import { ScheduleTask } from '@/lib/types';
-import { formatDate } from '@/lib/dates';
+import { formatDateShort } from '@/lib/dates';
 
-const NODE_W = 200;
-const NODE_H = 72;
+const NODE_W = 190;
+const NODE_H = 56;
 
 // Stable references so React Flow doesn't warn about recreated type maps.
 const NODE_TYPES = {};
@@ -19,7 +19,8 @@ function layout(
 ): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'TB', nodesep: 40, ranksep: 60 });
+  // Top-down: prerequisites above their dependents.
+  g.setGraph({ rankdir: 'TB', nodesep: 42, ranksep: 64, marginx: 12, marginy: 12 });
 
   for (const t of tasks) g.setNode(String(t.id), { width: NODE_W, height: NODE_H });
   const edgePairs: Array<[number, number]> = [];
@@ -40,19 +41,27 @@ function layout(
       data: {
         label: (
           <div className="text-left">
-            <div className="font-semibold text-sm truncate">{t.title}</div>
-            <div className="text-xs text-gray-500">
-              {t.durationDays}d · starts {formatDate(t.earliestStartDate)}
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="font-semibold text-[13px] text-stone-900 truncate">{t.title}</span>
+              {!t.isCritical && t.slackDays > 0 && (
+                <span className="font-mono text-[8.5px] text-stone-400 border border-dashed border-stone-300 rounded px-1 flex-shrink-0">
+                  +{t.slackDays}d slack
+                </span>
+              )}
+            </div>
+            <div className="font-mono text-[10px] text-stone-500 mt-0.5">
+              {t.durationDays}d · {formatDateShort(t.earliestStartDate)}
             </div>
           </div>
         ),
       },
       style: {
         width: NODE_W,
-        borderRadius: 8,
-        border: critical.has(t.id) ? '2px solid #f59e0b' : '1px solid #d1d5db',
+        borderRadius: 9,
+        border: critical.has(t.id) ? '1.5px solid #f59e0b' : '1px solid #e7e5e4',
         background: critical.has(t.id) ? '#fffbeb' : '#ffffff',
-        padding: 8,
+        boxShadow: '0 1px 2px rgba(28,25,23,0.06)',
+        padding: '8px 11px',
       },
     };
   });
@@ -69,10 +78,15 @@ function layout(
       source: String(from),
       target: String(to),
       animated: isCriticalEdge,
-      markerEnd: { type: MarkerType.ArrowClosed },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 16,
+        height: 16,
+        color: isCriticalEdge ? '#f59e0b' : '#a8a29e',
+      },
       style: isCriticalEdge
-        ? { stroke: '#f59e0b', strokeWidth: 2.5 }
-        : { stroke: '#9ca3af', strokeWidth: 1.5 },
+        ? { stroke: '#f59e0b', strokeWidth: 2.5, strokeDasharray: '6 4' }
+        : { stroke: '#d6d3d1', strokeWidth: 1.5 },
     };
   });
 
@@ -89,18 +103,21 @@ export function DependencyGraph({
   const { nodes, edges } = useMemo(() => layout(tasks, criticalPath), [tasks, criticalPath]);
   if (tasks.length === 0) return null;
   return (
-    <div className="bg-white bg-opacity-90 rounded-lg shadow-lg p-2" style={{ height: 420 }}>
+    <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-1.5 h-[360px] sm:h-[440px]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         fitView
+        fitViewOptions={{ padding: 0.2 }}
+        minZoom={0.3}
         nodesDraggable={false}
         nodesConnectable={false}
         proOptions={{ hideAttribution: true }}
+        className="rounded-lg"
       >
-        <Background />
+        <Background color="#e7e5e4" gap={20} size={1} />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>

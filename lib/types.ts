@@ -10,6 +10,7 @@ export interface ScheduleTask {
   earliestStartDay: number;
   earliestStartDate: string;
   earliestFinishDate: string;
+  slackDays: number;
   isCritical: boolean;
 }
 

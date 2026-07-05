@@ -5,9 +5,9 @@ import { searchImage } from '@/lib/pexels';
 import { topologicalSort, CycleError } from '@/lib/scheduling';
 
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     return NextResponse.json(
-      { error: 'AI decomposition requires ANTHROPIC_API_KEY to be set' },
+      { error: 'AI decomposition requires OPENROUTER_API_KEY to be set' },
       { status: 503 },
     );
   }
