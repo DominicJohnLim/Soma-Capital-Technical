@@ -6,6 +6,7 @@ export interface ScheduleTask {
   imageUrl: string | null;
   imageAlt: string | null;
   durationDays: number;
+  done: boolean;
   dependsOn: number[];
   earliestStartDay: number;
   earliestStartDate: string;

@@ -22,6 +22,7 @@ model Todo {
   imageUrl     String?
   imageAlt     String?
   durationDays Int              @default(1)
+  done         Boolean          @default(false)
   dependencies TodoDependency[] @relation("TodoDependencies")
   dependents   TodoDependency[] @relation("DependentTodos")
 }

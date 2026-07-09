@@ -30,3 +30,13 @@ export function formatDateShort(d: string | Date): string {
     timeZone: 'UTC',
   });
 }
+
+// Weekday-prefixed variant for the projected-finish headline (e.g. "Mon, Jul 1").
+export function formatDateFull(d: string | Date): string {
+  return new Date(d).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}

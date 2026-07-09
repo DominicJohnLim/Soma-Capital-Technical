@@ -18,17 +18,32 @@ export async function PATCH(request: Request, { params }: Params) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  if (!Number.isInteger(body.durationDays) || (body.durationDays as number) < 1) {
+  const data: { durationDays?: number; done?: boolean } = {};
+  if (body.durationDays !== undefined) {
+    if (!Number.isInteger(body.durationDays) || (body.durationDays as number) < 1) {
+      return NextResponse.json(
+        { error: 'durationDays must be a positive integer' },
+        { status: 400 },
+      );
+    }
+    data.durationDays = body.durationDays as number;
+  }
+  if (body.done !== undefined) {
+    if (typeof body.done !== 'boolean') {
+      return NextResponse.json({ error: 'done must be a boolean' }, { status: 400 });
+    }
+    data.done = body.done;
+  }
+  if (Object.keys(data).length === 0) {
     return NextResponse.json(
-      { error: 'durationDays must be a positive integer' },
+      { error: 'Provide durationDays and/or done' },
       { status: 400 },
     );
   }
-  const durationDays = body.durationDays as number;
   try {
     const todo = await prisma.todo.update({
       where: { id },
-      data: { durationDays },
+      data,
     });
     return NextResponse.json(todo);
   } catch {

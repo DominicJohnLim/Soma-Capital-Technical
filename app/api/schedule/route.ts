@@ -56,6 +56,7 @@ export async function GET() {
         imageUrl: t.imageUrl,
         imageAlt: t.imageAlt,
         durationDays: t.durationDays,
+        done: t.done,
         dependsOn: t.dependencies.map((d) => d.dependsOnId),
         earliestStartDay: s.earliestStartDay,
         earliestStartDate: addDays(projectStart, s.earliestStartDay).toISOString(),
